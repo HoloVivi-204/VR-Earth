@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Digital Earth — Interactive 3D WebXR globe with real-time orbital simulation" />
+  <title>Digital Earth — WebXR</title>
+  <link rel="stylesheet" href="/src/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+</head>
+<body>
+  <!-- 3D Canvas Mount -->
+  <div id="app"></div>
+
+  <!-- Mode Toggle Button — Large, clearly visible -->
+  <div class="mode-toggle-container">
+    <button class="mode-toggle-btn natural" id="modeToggleBtn" aria-label="Toggle mode">
+      <span class="mode-toggle-icon" id="modeIcon">🌍</span>
+      <span class="mode-toggle-label" id="modeLabel">Natural</span>
+    </button>
+  </div>
+
+  <!-- Mode Indicator Pill (top right) -->
+  <div class="mode-indicator natural" id="modeIndicator">
+    <span class="mode-dot"></span>
+    <span class="mode-label">🌍 Natural</span>
+  </div>
+
+  <!-- Settings Panel -->
+  <div class="settings-panel" id="settingsPanel">
+    <button class="settings-toggle" id="settingsToggle" aria-label="Settings">⚙</button>
+    <div class="settings-body hidden" id="settingsBody">
+      <h3 class="settings-title">Settings</h3>
+      
+      <div class="setting-row">
+        <span>Time Speed</span>
+        <select id="timeSpeedSelect">
+          <option value="0">0× (Paused)</option>
+          <option value="1">1× (Real-time)</option>
+          <option value="60">60×</option>
+          <option value="360" selected>360×</option>
+          <option value="3600">3600×</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <span>Clouds</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="cloudToggle" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <span>Rivers & Lakes</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="waterToggle" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <span>Night Lights</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="nightToggle" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <span>Atmosphere</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="atmosToggle" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <span>Flight Routes</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="flightsToggle" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <span>Satellites</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="satsToggle" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <span>FOV</span>
+        <input type="range" id="fovSlider" min="60" max="110" value="75" />
+        <span class="setting-val" id="fovVal">75°</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Navigation D-Pad -->
+  <div class="nav-panel" id="navPanel">
+    <div class="nav-dpad">
+      <button class="nav-btn" data-dir="up" id="navUp" aria-label="Orbit up">▲</button>
+      <button class="nav-btn" data-dir="left" id="navLeft" aria-label="Orbit left">◄</button>
+      <button class="nav-btn ok-btn" data-dir="ok" id="navOk" aria-label="Confirm">OK</button>
+      <button class="nav-btn" data-dir="right" id="navRight" aria-label="Orbit right">►</button>
+      <button class="nav-btn" data-dir="down" id="navDown" aria-label="Orbit down">▼</button>
+    </div>
+    <div class="nav-actions">
+      <button class="nav-btn" id="zoomIn" aria-label="Zoom in">+</button>
+      <button class="nav-btn" id="zoomOut" aria-label="Zoom out">−</button>
+      <button class="nav-btn reset-btn" id="resetView" aria-label="Reset view">⌂</button>
+    </div>
+  </div>
+
+  <!-- VR Button -->
+  <div class="vr-container">
+    <button class="vr-btn" id="vrButton">
+      <span class="vr-icon">🥽</span>
+      <span id="vrLabel">Enter VR</span>
+    </button>
+  </div>
+
+  <!-- Info HUD -->
+  <div class="info-hud" id="infoHud">
+    <span>UTC <span class="val" id="hudUtc">--:--</span></span>
+    <span>FPS <span class="val" id="hudFps">--</span></span>
+    <span>MODE <span class="val" id="hudMode">Natural</span></span>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
