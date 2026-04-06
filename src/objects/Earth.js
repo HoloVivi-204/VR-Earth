@@ -34,8 +34,8 @@ export class Earth {
       map: texture,
       color: 0xffffff,
       bumpMap: topo,
-      bumpScale: 0.05,
-      roughness: 0.82,
+      bumpScale: 0.07,
+      roughness: 0.9,
       metalness: 0,
     });
 
@@ -75,15 +75,17 @@ export class Earth {
         `#include <roughnessmap_fragment>
          float bathyMask = texture2D(uBathyTex, vMapUv2).r;
          float oceanMask = smoothstep(0.45, 0.12, bathyMask);
-         roughnessFactor = mix(0.82, 0.12, oceanMask);`
+         roughnessFactor = mix(0.9, 0.28, oceanMask);`
       );
 
       shader.fragmentShader = shader.fragmentShader.replace(
         '#include <dithering_fragment>',
         `float sunDot = dot(normalize(vWorldNormal), normalize(uSunDir));
-         float nightFactor = smoothstep(0.0, -0.2, sunDot);
+         float daylightLift = smoothstep(-0.75, 0.35, sunDot) * 0.18;
+         gl_FragColor.rgb += gl_FragColor.rgb * daylightLift;
+         float nightFactor = smoothstep(0.05, -0.28, sunDot);
          vec3 nightColor = texture2D(uNightTex, vMapUv2).rgb;
-         gl_FragColor.rgb += nightColor * nightFactor * 1.25 * uNightLightsEnabled;
+         gl_FragColor.rgb += nightColor * nightFactor * 1.45 * uNightLightsEnabled;
 
          #include <dithering_fragment>`
       );
@@ -122,10 +124,10 @@ export class Earth {
         void main() {
           vec3 viewDir = normalize(cameraPosition - vWorldPos);
           vec3 norm = normalize(vWorldNormal);
-          float rim = pow(1.0 - max(0.0, dot(viewDir, norm)), 2.4);
-          float sunFactor = 0.35 + 0.65 * max(0.0, dot(norm, normalize(uSunDir)));
-          vec3 color = vec3(0.14, 0.38, 0.95) * sunFactor;
-          gl_FragColor = vec4(color, rim * 0.5 * sunFactor);
+          float rim = pow(1.0 - max(0.0, dot(viewDir, norm)), 2.1);
+          float sunFactor = 0.45 + 0.55 * max(0.0, dot(norm, normalize(uSunDir)));
+          vec3 color = vec3(0.2, 0.48, 1.0) * sunFactor;
+          gl_FragColor = vec4(color, rim * 0.62 * sunFactor);
         }
       `,
       uniforms: {

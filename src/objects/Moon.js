@@ -23,13 +23,13 @@ export class Moon {
     const geometry = new THREE.SphereGeometry(radius, QUALITY.MOON_SEGMENTS, QUALITY.MOON_SEGMENTS);
     const material = new THREE.MeshStandardMaterial({
       map: colorTex,
-      color: new THREE.Color(0.12, 0.12, 0.12),
+      color: new THREE.Color(0.3, 0.3, 0.3),
       bumpMap: bumpTex,
-      bumpScale: 0.02,
-      roughness: 1,
+      bumpScale: 0.03,
+      roughness: 0.95,
       metalness: 0,
-      emissive: new THREE.Color(0x08121a),
-      emissiveIntensity: 0.12,
+      emissive: new THREE.Color(0x10161d),
+      emissiveIntensity: 0.18,
     });
 
     this.mesh = new THREE.Mesh(geometry, material);

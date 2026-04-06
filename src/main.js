@@ -40,15 +40,22 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, QUALITY.PIXEL_RATIO_DESKTOP));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.0;
+renderer.toneMappingExposure = 1.35;
 renderer.shadowMap.enabled = false;
 renderer.xr.enabled = true;
 app.appendChild(renderer.domElement);
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.28);
+const ambientLight = new THREE.AmbientLight(0xf0f6ff, 0.5);
 scene.add(ambientLight);
 
-const sunLight = new THREE.DirectionalLight(0xfff8f0, 2.35);
+const hemiLight = new THREE.HemisphereLight(0x8fc7ff, 0x08111f, 0.38);
+scene.add(hemiLight);
+
+const fillLight = new THREE.DirectionalLight(0xa9d7ff, 0.28);
+fillLight.position.set(-25, 8, 18);
+scene.add(fillLight);
+
+const sunLight = new THREE.DirectionalLight(0xfff1d8, 3.8);
 scene.add(sunLight);
 
 function getSunDirection(timestamp) {
