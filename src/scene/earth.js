@@ -1,11 +1,17 @@
 import * as THREE from 'three';
 import { createGeoOverlayGroup } from './geoOverlays.js';
 
+const isMobileLike = /Mobi|Android|iPhone|iPad|Quest/i.test(navigator.userAgent);
+const DAY_TEXTURE_MAX_SIZE = isMobileLike ? 2048 : 4096;
+const AUX_TEXTURE_MAX_SIZE = isMobileLike ? 1024 : 2048;
+
 export function createEarth({ settings, sunDirection = new THREE.Vector3(30, 0.5, -6) }) {
   // Earth group
   const earthGroup = new THREE.Group();
 
-  const earthGeometry = new THREE.SphereGeometry(settings.earthRadius, 128, 96);
+  const widthSegments = isMobileLike ? 96 : 128;
+  const heightSegments = isMobileLike ? 72 : 96;
+  const earthGeometry = new THREE.SphereGeometry(settings.earthRadius, widthSegments, heightSegments);
   const earthMesh = new THREE.Mesh(earthGeometry, createEarthMaterialForStyle(settings));
   earthGroup.add(earthMesh);
 
@@ -23,18 +29,7 @@ export function createEarth({ settings, sunDirection = new THREE.Vector3(30, 0.5
   geoOverlayGroup.name = 'geo-overlays';
   geoOverlayGroup.visible = false;
   earthMesh.add(geoOverlayGroup);
-
-  createGeoOverlayGroup({
-    earthRadius: settings.earthRadius,
-    countriesUrl: new URL('../../assets/geojson/countries.json', import.meta.url),
-    graticulesUrl: new URL('../../assets/geojson/ne_110m_graticules_5.json', import.meta.url)
-  })
-    .then((group) => {
-      geoOverlayGroup.add(...group.children);
-    })
-    .catch(() => {
-      // Keep the Earth visible even if overlay data fails to load.
-    });
+  let geoOverlayLoadPromise = null;
 
   // Optional realism textures (if present / reachable)
   if (settings.enableRealTextures && settings.style === 'realistic') {
@@ -51,7 +46,7 @@ export function createEarth({ settings, sunDirection = new THREE.Vector3(30, 0.5
   }
 
   // Clouds layer (optional)
-  const cloudsGeometry = new THREE.SphereGeometry(settings.earthRadius * 1.012, 128, 96);
+  const cloudsGeometry = new THREE.SphereGeometry(settings.earthRadius * 1.012, widthSegments, heightSegments);
   const cloudsMaterial = new THREE.MeshLambertMaterial({
     color: 0xc3cdd8,
     transparent: true,
@@ -107,18 +102,38 @@ export function createEarth({ settings, sunDirection = new THREE.Vector3(30, 0.5
     axisMesh,
     cityLightsMesh: cityLightsLayer.mesh,
     coordinatesMesh: coordinatesLayer.mesh,
-    geoOverlayGroup
+    geoOverlayGroup,
+    ensureGeoOverlayLoaded() {
+      if (geoOverlayGroup.children.length > 0) {
+        return Promise.resolve(geoOverlayGroup);
+      }
+
+      if (!geoOverlayLoadPromise) {
+        geoOverlayLoadPromise = createGeoOverlayGroup({
+          earthRadius: settings.earthRadius,
+          countriesUrl: new URL('../../assets/geojson/countries.json', import.meta.url),
+          graticulesUrl: new URL('../../assets/geojson/ne_110m_graticules_5.json', import.meta.url)
+        })
+          .then((group) => {
+            geoOverlayGroup.add(...group.children);
+            return geoOverlayGroup;
+          })
+          .catch(() => geoOverlayGroup);
+      }
+
+      return geoOverlayLoadPromise;
+    }
   };
 }
 
 function createCoordinatesLayer({ earthRadius }) {
-  const tex = createCoordinatesTexture({ width: 2048, height: 1024 });
+  const tex = createCoordinatesTexture({ width: isMobileLike ? 1024 : 2048, height: isMobileLike ? 512 : 1024 });
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.ClampToEdgeWrapping;
   tex.anisotropy = 8;
 
-  const geometry = new THREE.SphereGeometry(earthRadius * 1.016, 192, 140);
+  const geometry = new THREE.SphereGeometry(earthRadius * 1.016, isMobileLike ? 128 : 192, isMobileLike ? 96 : 140);
   const material = new THREE.MeshBasicMaterial({
     map: tex,
     transparent: true,
@@ -197,7 +212,7 @@ function createCoordinatesTexture({ width, height }) {
 
 function createCityLightsLayer({ earthRadius, sunDirection, nightTexture = null }) {
   // Keep this shell slightly outside clouds so dense light dots stay visible.
-  const geometry = new THREE.SphereGeometry(earthRadius * 1.018, 192, 140);
+  const geometry = new THREE.SphereGeometry(earthRadius * 1.018, isMobileLike ? 128 : 192, isMobileLike ? 96 : 140);
   const material = new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
@@ -528,29 +543,28 @@ async function loadEarthTextures(paths) {
 
   const [day, normal, roughness, specular, bump, seaIce, night] = results.map((r) => (r.status === 'fulfilled' ? r.value : null));
   if (day) {
-    day.colorSpace = THREE.SRGBColorSpace;
-    day.wrapS = THREE.RepeatWrapping;
-    day.wrapT = THREE.ClampToEdgeWrapping;
-    day.anisotropy = 8;
+    prepareTexture(day, THREE.SRGBColorSpace);
   }
 
   // non-color maps
   for (const tex of [normal, roughness, specular, bump, seaIce]) {
     if (!tex) continue;
-    tex.colorSpace = THREE.NoColorSpace;
-    tex.wrapS = THREE.RepeatWrapping;
-    tex.wrapT = THREE.ClampToEdgeWrapping;
-    tex.anisotropy = 8;
+    prepareTexture(tex, THREE.NoColorSpace);
   }
 
   if (night) {
-    night.colorSpace = THREE.SRGBColorSpace;
-    night.wrapS = THREE.RepeatWrapping;
-    night.wrapT = THREE.ClampToEdgeWrapping;
-    night.anisotropy = 8;
+    prepareTexture(night, THREE.SRGBColorSpace);
   }
 
-  return { day, normal, roughness, specular, bump, seaIce, night };
+  return {
+    day: resizeTextureIfNeeded(day, DAY_TEXTURE_MAX_SIZE, THREE.SRGBColorSpace),
+    normal: resizeTextureIfNeeded(normal, AUX_TEXTURE_MAX_SIZE, THREE.NoColorSpace),
+    roughness: resizeTextureIfNeeded(roughness, AUX_TEXTURE_MAX_SIZE, THREE.NoColorSpace),
+    specular: resizeTextureIfNeeded(specular, AUX_TEXTURE_MAX_SIZE, THREE.NoColorSpace),
+    bump: resizeTextureIfNeeded(bump, AUX_TEXTURE_MAX_SIZE, THREE.NoColorSpace),
+    seaIce: resizeTextureIfNeeded(seaIce, AUX_TEXTURE_MAX_SIZE, THREE.NoColorSpace),
+    night: resizeTextureIfNeeded(night, AUX_TEXTURE_MAX_SIZE, THREE.SRGBColorSpace)
+  };
 }
 
 function createRealEarthMaterial(maps) {
@@ -717,6 +731,40 @@ function createEditableTextureCanvas(sourceImage) {
   const data = img.data;
 
   return { canvas, ctx, img, data };
+}
+
+function prepareTexture(texture, colorSpace) {
+  texture.colorSpace = colorSpace;
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.anisotropy = isMobileLike ? 2 : 4;
+}
+
+function resizeTextureIfNeeded(texture, maxSize, colorSpace) {
+  const image = texture?.image;
+  if (!texture || !image?.width || !image?.height) return texture;
+
+  const largestSide = Math.max(image.width, image.height);
+  if (largestSide <= maxSize) return texture;
+
+  const scale = maxSize / largestSide;
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(image, 0, 0, width, height);
+
+  const resized = new THREE.CanvasTexture(canvas);
+  resized.colorSpace = colorSpace;
+  resized.wrapS = texture.wrapS;
+  resized.wrapT = texture.wrapT;
+  resized.anisotropy = texture.anisotropy;
+  resized.generateMipmaps = true;
+  texture.dispose();
+
+  return resized;
 }
 
 function getComparableImageData(texture, width, height) {

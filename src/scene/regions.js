@@ -61,6 +61,31 @@ export const REGIONS = [
 
 const MAP_LONGITUDE_OFFSET_DEG = 0;
 const MAP_LONGITUDE_DIRECTION = -1;
+const markerGeometry = new THREE.SphereGeometry(0.012, 8, 8);
+const hitGeometry = new THREE.SphereGeometry(0.07, 8, 8);
+const markerMaterialCache = new Map();
+const hitMaterialCache = new Map();
+const labelTextureCache = new Map();
+
+function getMarkerMaterial(color) {
+  if (!markerMaterialCache.has(color)) {
+    markerMaterialCache.set(color, new THREE.MeshBasicMaterial({ color, fog: false }));
+  }
+  return markerMaterialCache.get(color);
+}
+
+function getHitMaterial(color) {
+  if (!hitMaterialCache.has(color)) {
+    hitMaterialCache.set(color, new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.02,
+      depthWrite: false,
+      fog: false
+    }));
+  }
+  return hitMaterialCache.get(color);
+}
 
 export function createRegionLabels({ earthRadius = 1.2 } = {}) {
   const regionsGroup = new THREE.Group();
@@ -77,12 +102,7 @@ export function createRegionLabels({ earthRadius = 1.2 } = {}) {
 
     // Only create markers for cities, not for large regions
     if (!region.isRegion) {
-      const markerGeometry = new THREE.SphereGeometry(0.012, 10, 10);
-      const markerMaterial = new THREE.MeshBasicMaterial({
-        color: region.color,
-        fog: false
-      });
-      const marker = new THREE.Mesh(markerGeometry, markerMaterial);
+      const marker = new THREE.Mesh(markerGeometry, getMarkerMaterial(region.color));
       marker.position.copy(surfacePos);
       marker.name = 'marker';
       regionsGroup.add(marker);
@@ -94,15 +114,7 @@ export function createRegionLabels({ earthRadius = 1.2 } = {}) {
       };
 
       // Add a larger transparent collider so VR controller raycasts are easier to hit.
-      const hitGeometry = new THREE.SphereGeometry(0.07, 10, 10);
-      const hitMaterial = new THREE.MeshBasicMaterial({
-        color: region.color,
-        transparent: true,
-        opacity: 0.02,
-        depthWrite: false,
-        fog: false
-      });
-      const hitTarget = new THREE.Mesh(hitGeometry, hitMaterial);
+      const hitTarget = new THREE.Mesh(hitGeometry, getHitMaterial(region.color));
       hitTarget.position.copy(labelPos);
       hitTarget.name = 'hitTarget';
       hitTarget.userData = {
@@ -138,32 +150,38 @@ function latLonToCartesian(lat, lon, radius) {
 }
 
 function createSimpleTextLabel(text, color) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 128;
+  const cacheKey = `${text}:${color}`;
+  let texture = labelTextureCache.get(cacheKey);
 
-  const ctx = canvas.getContext('2d');
+  if (!texture) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 128;
 
-  if (!ctx) {
-    const fallbackMaterial = new THREE.SpriteMaterial({ color });
-    return new THREE.Sprite(fallbackMaterial);
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) {
+      const fallbackMaterial = new THREE.SpriteMaterial({ color });
+      return new THREE.Sprite(fallbackMaterial);
+    }
+
+    const textColor = `#${color.toString(16).padStart(6, '0')}`;
+    ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
+    ctx.font = 'bold 52px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
+    ctx.lineWidth = 10;
+    ctx.strokeText(text, 256, 64);
+    ctx.fillStyle = textColor;
+    ctx.fillText(text, 256, 64);
+
+    texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    texture.magFilter = THREE.LinearFilter;
+    texture.generateMipmaps = false;
+    labelTextureCache.set(cacheKey, texture);
   }
-
-  const textColor = `#${color.toString(16).padStart(6, '0')}`;
-  ctx.fillStyle = `#${color.toString(16).padStart(6, '0')}`;
-  ctx.font = 'bold 52px Arial, sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.strokeStyle = 'rgba(0, 0, 0, 0.9)';
-  ctx.lineWidth = 10;
-  ctx.strokeText(text, 256, 64);
-  ctx.fillStyle = textColor;
-  ctx.fillText(text, 256, 64);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.minFilter = THREE.LinearFilter;
-  texture.magFilter = THREE.LinearFilter;
-  texture.generateMipmaps = false;
 
   const material = new THREE.SpriteMaterial({
     map: texture,

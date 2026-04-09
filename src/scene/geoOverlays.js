@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 
 const MAP_LONGITUDE_DIRECTION = -1;
-const DEFAULT_LATLON_SAMPLES = 64;
+const DEFAULT_LATLON_SAMPLES = 24;
 
 export async function createGeoOverlayGroup({
   earthRadius,
@@ -38,21 +38,30 @@ async function fetchGeoJson(url) {
 function buildCountryBorders(featureCollection, radius) {
   const group = new THREE.Group();
   group.name = 'country-borders';
+  const positions = [];
 
   for (const feature of featureCollection?.features || []) {
     const geometry = feature?.geometry;
     if (!geometry) continue;
 
     if (geometry.type === 'Polygon') {
-      addPolygonRings(group, geometry.coordinates, radius, createBorderMaterial());
+      addPolygonRings(positions, geometry.coordinates, radius);
       continue;
     }
 
     if (geometry.type === 'MultiPolygon') {
       for (const polygon of geometry.coordinates) {
-        addPolygonRings(group, polygon, radius, createBorderMaterial());
+        addPolygonRings(positions, polygon, radius);
       }
     }
+  }
+
+  if (positions.length > 0) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const lines = new THREE.LineSegments(geometry, createBorderMaterial());
+    lines.renderOrder = 11;
+    group.add(lines);
   }
 
   return group;
@@ -61,34 +70,42 @@ function buildCountryBorders(featureCollection, radius) {
 function buildGraticules(featureCollection, radius) {
   const group = new THREE.Group();
   group.name = 'graticules';
-  const material = createGraticuleMaterial();
+  const positions = [];
 
   for (const feature of featureCollection?.features || []) {
     const geometry = feature?.geometry;
     if (!geometry) continue;
 
     if (geometry.type === 'LineString') {
-      addLineString(group, geometry.coordinates, radius, material);
+      addLineString(positions, geometry.coordinates, radius);
       continue;
     }
 
     if (geometry.type === 'MultiLineString') {
       for (const line of geometry.coordinates) {
-        addLineString(group, line, radius, material);
+        addLineString(positions, line, radius);
       }
     }
+  }
+
+  if (positions.length > 0) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const lines = new THREE.LineSegments(geometry, createGraticuleMaterial());
+    lines.renderOrder = 11;
+    group.add(lines);
   }
 
   return group;
 }
 
-function addPolygonRings(group, polygonCoords, radius, material) {
+function addPolygonRings(positions, polygonCoords, radius) {
   for (const ring of polygonCoords || []) {
-    addLineString(group, ring, radius, material, true);
+    addLineString(positions, ring, radius, true);
   }
 }
 
-function addLineString(group, coordinates, radius, material, closed = false) {
+function addLineString(positions, coordinates, radius, closed = false) {
   const points = [];
   const safeCoords = coordinates || [];
 
@@ -104,10 +121,11 @@ function addLineString(group, coordinates, radius, material, closed = false) {
 
   if (points.length < 2) return;
 
-  const geometry = new THREE.BufferGeometry().setFromPoints(points);
-  const line = new THREE.Line(geometry, material.clone());
-  line.renderOrder = 11;
-  group.add(line);
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const a = points[i];
+    const b = points[i + 1];
+    positions.push(a.x, a.y, a.z, b.x, b.y, b.z);
+  }
 }
 
 function appendArcPoints(points, start, end, radius) {

@@ -19,6 +19,7 @@ let earthGroup, earthMesh, cloudsMesh;
 let coordinatesOverlayEnabled = false;
 let coordinatesMesh;
 let geoOverlayGroup;
+let ensureGeoOverlayLoaded;
 let updateMoon;
 let updateSatellite;
 let regionsGroup;
@@ -192,6 +193,7 @@ function init() {
   cloudsMesh = earth.cloudsMesh;
   coordinatesMesh = earth.coordinatesMesh;
   geoOverlayGroup = earth.geoOverlayGroup;
+  ensureGeoOverlayLoaded = earth.ensureGeoOverlayLoaded;
   worldRoot.add(earthGroup);
 
   // Region labels (attach to earthMesh so they rotate with Earth spin)
@@ -301,7 +303,13 @@ function init() {
     setCoordinatesMapEnabled: (enabled) => {
       coordinatesOverlayEnabled = enabled;
       if (coordinatesMesh) coordinatesMesh.visible = enabled;
-      if (geoOverlayGroup) geoOverlayGroup.visible = enabled;
+      if (enabled && ensureGeoOverlayLoaded) {
+        ensureGeoOverlayLoaded().then(() => {
+          if (geoOverlayGroup) geoOverlayGroup.visible = coordinatesOverlayEnabled;
+        });
+      } else if (geoOverlayGroup) {
+        geoOverlayGroup.visible = enabled;
+      }
     },
     onResetView: () => {
       applyCameraPreset('default');
@@ -313,7 +321,7 @@ function init() {
 
   if (coordinatesMesh) coordinatesMesh.visible = coordinatesOverlayEnabled;
   syncPanelToggleButton();
-  if (geoOverlayGroup) geoOverlayGroup.visible = coordinatesOverlayEnabled;
+  if (geoOverlayGroup) geoOverlayGroup.visible = false;
 
   loadCountryFeatures(new URL('../assets/geojson/countries.json', import.meta.url))
     .then(() => {
